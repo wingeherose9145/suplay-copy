@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     private val videoUris = mutableListOf<Uri>()
     private val displayNames = mutableListOf<String>()
     private lateinit var adapter: ArrayAdapter<String>
+    private lateinit var addButton: Button
 
     private val requestPermission = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -31,31 +32,34 @@ class MainActivity : AppCompatActivity() {
         if (permissions.all { it.value }) {
             loadAllVideos()
         } else {
-            Toast.makeText(this, "权限被拒绝，无法读取视频", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "需要权限才能读取视频", Toast.LENGTH_LONG).show()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 如果已有保存的视频列表，则直接进入随机播放
+        if (hasSavedVideoList()) {
+            startRandomPlayback()
+            return
+        }
+
+        // 第一次使用：显示主界面让用户添加视频
         setContentView(R.layout.activity_main)
 
         listView = findViewById(R.id.videoListView)
-        val addButton = findViewById<Button>(R.id.addButton)
+        addButton = findViewById(R.id.addButton)
 
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, displayNames)
         listView.adapter = adapter
 
-        addButton.text = "刷新视频列表"
-        addButton.setOnClickListener { refreshOrLoadVideos() }
+        addButton.text = "添加视频"
+        addButton.setOnClickListener { addVideos() }
 
         // 点击播放
         listView.setOnItemClickListener { _, _, position, _ ->
-            val intent = Intent(this, PlayerActivity::class.java).apply {
-                putExtra("video_uri", videoUris[position].toString())
-                putExtra("current_index", position)
-                putStringArrayListExtra("video_list", ArrayList(videoUris.map { it.toString() }))
-            }
-            startActivity(intent)
+            startPlayerActivity(position)
         }
 
         // 长按删除
@@ -76,11 +80,35 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        // 启动时直接尝试恢复或加载
-        loadSavedListOrRefresh()
+        // 首次启动请求权限
+        if (!hasPermission()) {
+            requestPermission()
+        }
     }
 
-    private fun refreshOrLoadVideos() {
+    private fun hasSavedVideoList(): Boolean {
+        val prefs = getSharedPreferences("video_list", MODE_PRIVATE)
+        return prefs.contains("uris")
+    }
+
+    private fun startRandomPlayback() {
+        val intent = Intent(this, PlayerActivity::class.java)
+        intent.putStringArrayListExtra("video_list", ArrayList(loadSavedUris()))
+        startActivity(intent)
+        finish() // 关闭 MainActivity
+    }
+
+    private fun loadSavedUris(): List<String> {
+        val prefs = getSharedPreferences("video_list", MODE_PRIVATE)
+        val json = prefs.getString("uris", null) ?: return emptyList()
+        return try {
+            Gson().fromJson(json, object : TypeToken<List<String>>() {}.type)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun addVideos() {
         if (hasPermission()) {
             loadAllVideos()
         } else {
@@ -92,20 +120,17 @@ class MainActivity : AppCompatActivity() {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
         } else {
-            true // Android 12 及以下不强制检查
+            true
         }
     }
 
     private fun requestPermission() {
-        requestPermission.launch(arrayOf(Manifest.permission.READ_MEDIA_VIDEO))
-    }
-
-    private fun loadSavedListOrRefresh() {
-        if (loadSavedVideoList()) {
-            Toast.makeText(this, "已恢复 ${displayNames.size} 个视频", Toast.LENGTH_SHORT).show()
+        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
         } else {
-            loadAllVideos()   // 直接尝试加载，不强制弹权限
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
+        requestPermission.launch(perm)
     }
 
     private fun loadAllVideos() {
@@ -137,11 +162,7 @@ class MainActivity : AppCompatActivity() {
         adapter.notifyDataSetChanged()
         saveVideoList()
 
-        if (displayNames.isEmpty()) {
-            Toast.makeText(this, "未找到视频文件", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "找到 ${displayNames.size} 个视频", Toast.LENGTH_SHORT).show()
-        }
+        Toast.makeText(this, "已添加 ${displayNames.size} 个视频", Toast.LENGTH_SHORT).show()
     }
 
     private fun saveVideoList() {
@@ -152,24 +173,12 @@ class MainActivity : AppCompatActivity() {
         editor.apply()
     }
 
-    private fun loadSavedVideoList(): Boolean {
-        val prefs = getSharedPreferences("video_list", MODE_PRIVATE)
-        val uriJson = prefs.getString("uris", null) ?: return false
-        val nameJson = prefs.getString("names", null) ?: return false
-
-        try {
-            val uriList: List<String> = Gson().fromJson(uriJson, object : TypeToken<List<String>>() {}.type)
-            val nameList: List<String> = Gson().fromJson(nameJson, object : TypeToken<List<String>>() {}.type)
-
-            videoUris.clear()
-            displayNames.clear()
-            uriList.forEach { videoUris.add(Uri.parse(it)) }
-            displayNames.addAll(nameList)
-
-            adapter.notifyDataSetChanged()
-            return true
-        } catch (e: Exception) {
-            return false
+    private fun startPlayerActivity(position: Int) {
+        val intent = Intent(this, PlayerActivity::class.java).apply {
+            putExtra("video_uri", videoUris[position].toString())
+            putExtra("current_index", position)
+            putStringArrayListExtra("video_list", ArrayList(videoUris.map { it.toString() }))
         }
+        startActivity(intent)
     }
 }
