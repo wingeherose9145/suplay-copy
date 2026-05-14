@@ -4,7 +4,22 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- 背景圆 -->
+    <path
+        android:fillColor="#3DDC84"
+        android:pathData="M54,54m-48,0a48,48 0,1 1,96 0a48,48 0,1 1,-96 0" />
+
+    <!-- 大写 S 字母 -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M0,0h108v108h-108z"/>
+        android:pathData="M54 28 L54 28 L70 40 Q78 50 70 65 L54 78 L54 78 L38 65 Q30 50 38 40 Z" />
+    
+    <text
+        android:x="54"
+        android:y="62"
+        android:text="S"
+        android:fontSize="45"
+        android:textColor="#FFFFFF"
+        android:textAlign="center" />
 </vector>
