@@ -7,7 +7,8 @@
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent" 
+        android:keepScreenOn="true" /> ```/>
 
     <!-- 进度条：只在暂停时显示，浅透明白色 -->
     <SeekBar
