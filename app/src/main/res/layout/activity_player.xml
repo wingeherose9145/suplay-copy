@@ -7,10 +7,40 @@
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" 
-        android:keepScreenOn="true" /> ```/>
+        android:layout_height="match_parent"
+        android:keepScreenOn="true" />
 
-    <!-- 进度条：只在暂停时显示，浅透明白色 -->
+    <!-- 左上角文件名 -->
+    <TextView
+        android:id="@+id/filenameText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:background="#80000000"
+        android:padding="8dp"
+        android:visibility="visible" />
+
+    <!-- 右上角回退5秒按钮 -->
+    <Button
+        android:id="@+id/rewindButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
+        android:text="@string/rewind_5s"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#80000000"
+        android:padding="8dp"
+        android:visibility="visible" />
+
+    <!-- 底部进度条（暂停时显示） -->
     <SeekBar
         android:id="@+id/seekBar"
         android:layout_width="match_parent"
