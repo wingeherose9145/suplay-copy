@@ -49,6 +49,7 @@ class PlayerActivity : AppCompatActivity() {
         seekBar = findViewById(R.id.seekBar)
         filenameText = findViewById(R.id.filenameText)
         rewindButton = findViewById(R.id.rewindButton)
+        rewindButton.setOnClickListener { rewind5Seconds() }
 
         player = ExoPlayer.Builder(this).build()
         playerView.player = player
@@ -166,11 +167,7 @@ class PlayerActivity : AppCompatActivity() {
             retriever.setDataSource(this, uri)
             val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
             val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-            requestedOrientation = if (height > width) {
-                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            } else {
-                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            }
+            requestedOrientation = if (height > width) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             retriever.release()
         } catch (e: Exception) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -225,9 +222,11 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun rewind5Seconds() {
-        val newPosition = (player.currentPosition - 5000).coerceAtLeast(0L)
-        player.seekTo(newPosition)
-        showControlsTemporarily()
+        if (player.duration > 0) {
+            val newPosition = (player.currentPosition - 5000).coerceAtLeast(0)
+            player.seekTo(newPosition)
+            showControlsTemporarily()   // 反馈：短暂显示控件
+        }
     }
 
     override fun onPause() {
