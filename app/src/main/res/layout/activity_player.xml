@@ -4,14 +4,14 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- ExoPlayer 视频播放区域 -->
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:keepScreenOn="true" />
+        android:keepScreenOn="true"
+        app:use_controller="false" />   <!-- 关键：禁用默认控制器 -->
 
-    <!-- 左上角 文件名显示（播放时自动隐藏） -->
+    <!-- 左上角文件名 -->
     <TextView
         android:id="@+id/filenameText"
         android:layout_width="wrap_content"
@@ -23,10 +23,9 @@
         android:textColor="#FFFFFF"
         android:textSize="16sp"
         android:background="#80000000"
-        android:padding="8dp"
-        android:visibility="visible" />
+        android:padding="8dp" />
 
-    <!-- 右上角 回退5秒按钮（播放时自动隐藏） -->
+    <!-- 右上角回退5秒 -->
     <Button
         android:id="@+id/rewindButton"
         android:layout_width="wrap_content"
@@ -38,10 +37,9 @@
         android:text="@string/rewind_5s"
         android:textColor="#FFFFFF"
         android:backgroundTint="#80000000"
-        android:padding="8dp"
-        android:visibility="visible" />
+        android:padding="8dp" />
 
-    <!-- 底部进度条（仅暂停或手动显示时出现） -->
+    <!-- 底部进度条 -->
     <SeekBar
         android:id="@+id/seekBar"
         android:layout_width="match_parent"
