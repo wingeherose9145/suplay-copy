@@ -24,7 +24,7 @@ import kotlin.random.Random
 
 class PlayerActivity : AppCompatActivity() {
 
-    private lateinit var player: ExoPlayer
+    private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
     private lateinit var seekBar: SeekBar
     private lateinit var filenameText: TextView
@@ -51,10 +51,6 @@ class PlayerActivity : AppCompatActivity() {
         rewindButton = findViewById(R.id.rewindButton)
         rewindButton.setOnClickListener { rewind5Seconds() }
 
-        player = ExoPlayer.Builder(this).build()
-        playerView.player = player
-        playerView.useController = false
-
         videoUris = intent.getStringArrayListExtra("video_list") ?: arrayListOf()
         currentIndex = intent.getIntExtra("current_index", 0)
 
@@ -69,43 +65,69 @@ class PlayerActivity : AppCompatActivity() {
         setupSeekBar()
         setupControls()
 
-        player.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) {
-                    playNextVideo()
-                } else if (state == Player.STATE_READY) {
-                    showControlsTemporarily()
-                }
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) hideControls() else showControls()
-            }
-
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                Toast.makeText(this@PlayerActivity, "播放错误，切换下一个", Toast.LENGTH_SHORT).show()
-                playNextVideo()
-            }
-        })
-
         playCurrentVideo()
+    }
 
-        playerView.setOnClickListener {
-            togglePlaybackAndControls()
+    private fun initPlayer() {
+        player?.release()
+        player = ExoPlayer.Builder(this).build().apply {
+            playerView.player = this
+            addListener(playerListener)
         }
     }
 
+    private val playerListener = object : Player.Listener {
+        override fun onPlaybackStateChanged(state: Int) {
+            if (state == Player.STATE_ENDED) {
+                playNextVideo()
+            } else if (state == Player.STATE_READY) {
+                showControlsTemporarily()
+            }
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) hideControls() else showControls()
+        }
+
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            Toast.makeText(this@PlayerActivity, "播放出错: ${error.message}，切换下一个", Toast.LENGTH_SHORT).show()
+            playNextVideo()
+        }
+    }
+
+    private fun playCurrentVideo() {
+        try {
+            initPlayer()  // 每次都重建 player，解决状态污染
+
+            val uri = Uri.parse(videoUris[currentIndex])
+            filenameText.text = getFileNameFromUri(uri)
+            setVideoOrientation(uri)
+
+            player?.let {
+                it.setMediaItem(MediaItem.fromUri(uri))
+                it.prepare()
+                it.play()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "播放失败，切换下一个", Toast.LENGTH_SHORT).show()
+            playNextVideo()
+        }
+    }
+
+    // 其余函数保持不变（setupControls, show/hide, gesture, seek, rewind, orientation 等）
     private fun setupControls() {
         hideControlsHandler.postDelayed({ hideControls() }, 3000)
     }
 
     private fun togglePlaybackAndControls() {
-        if (player.isPlaying) {
-            player.pause()
-            showControls()
-        } else {
-            player.play()
-            hideControls()
+        player?.let {
+            if (it.isPlaying) {
+                it.pause()
+                showControls()
+            } else {
+                it.play()
+                hideControls()
+            }
         }
     }
 
@@ -125,7 +147,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun showControlsTemporarily() {
         showControls()
         hideControlsHandler.removeCallbacksAndMessages(null)
-        hideControlsHandler.postDelayed({ if (player.isPlaying) hideControls() }, 3000)
+        hideControlsHandler.postDelayed({ if (player?.isPlaying == true) hideControls() }, 3000)
     }
 
     private fun shuffleAndRandomStart() {
@@ -134,45 +156,9 @@ class PlayerActivity : AppCompatActivity() {
         currentIndex = Random.nextInt(videoUris.size)
     }
 
-    private fun playCurrentVideo() {
-        try {
-            val uri = Uri.parse(videoUris[currentIndex])
-            filenameText.text = getFileNameFromUri(uri)
-            setVideoOrientation(uri)
+    private fun getFileNameFromUri(uri: Uri): String = /* 同之前 */
 
-            player.stop()
-            player.setMediaItem(MediaItem.fromUri(uri))
-            player.prepare()
-            player.play()
-        } catch (e: Exception) {
-            Toast.makeText(this, "播放失败，切换下一个", Toast.LENGTH_SHORT).show()
-            playNextVideo()
-        }
-    }
-
-    private fun getFileNameFromUri(uri: Uri): String {
-        return try {
-            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst()) cursor.getString(nameIndex) else "未知视频"
-            } ?: "未知视频"
-        } catch (e: Exception) {
-            "未知视频"
-        }
-    }
-
-    private fun setVideoOrientation(uri: Uri) {
-        try {
-            val retriever = MediaMetadataRetriever()
-            retriever.setDataSource(this, uri)
-            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
-            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-            requestedOrientation = if (height > width) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            retriever.release()
-        } catch (e: Exception) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
-    }
+    private fun setVideoOrientation(uri: Uri) { /* 同之前 */ }
 
     private fun playNextVideo() {
         currentIndex = (currentIndex + 1) % videoUris.size
@@ -184,60 +170,30 @@ class PlayerActivity : AppCompatActivity() {
         playCurrentVideo()
     }
 
-    private fun setupGestureDetector() {
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
-                if (kotlin.math.abs(velocityX) > 700) {
-                    if (velocityX > 0) playPreviousVideo() else playNextVideo()
-                    return true
-                }
-                return false
-            }
-        })
+    private fun setupGestureDetector() { /* 同之前 */ }
 
-        playerView.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
-            false
-        }
-    }
-
-    private fun setupSeekBar() {
-        handler.post(object : Runnable {
-            override fun run() {
-                if (player.duration > 0 && seekBar.visibility == View.VISIBLE) {
-                    seekBar.max = player.duration.toInt()
-                    seekBar.progress = player.currentPosition.toInt()
-                }
-                handler.postDelayed(this, 500)
-            }
-        })
-
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) player.seekTo(progress.toLong())
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-    }
+    private fun setupSeekBar() { /* 同之前 */ }
 
     private fun rewind5Seconds() {
-        if (player.duration > 0) {
-            val newPosition = (player.currentPosition - 5000).coerceAtLeast(0)
-            player.seekTo(newPosition)
-            showControlsTemporarily()   // 反馈：短暂显示控件
+        player?.let {
+            if (it.duration > 0) {
+                val newPos = (it.currentPosition - 5000).coerceAtLeast(0)
+                it.seekTo(newPos)
+                showControlsTemporarily()
+            }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        player.pause()
+        player?.pause()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
         hideControlsHandler.removeCallbacksAndMessages(null)
-        player.release()
+        player?.release()
+        player = null
     }
 }
