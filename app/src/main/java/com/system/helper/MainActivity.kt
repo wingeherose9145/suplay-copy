@@ -44,19 +44,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        loadSavedList()
-
-        // ==================== 核心修改 ====================
-        // 如果已有播放列表，则直接随机播放，不显示列表界面
-        if (videoUris.isNotEmpty()) {
-            val randomIndex = videoUris.indices.random()
-            startRandomPlayback(randomIndex)
-            return  // 直接退出，不显示列表
-        }
-        // ================================================
-
-        // 没有视频时才显示列表界面
         setContentView(R.layout.activity_main)
 
         listView = findViewById(R.id.videoListView)
@@ -64,6 +51,8 @@ class MainActivity : AppCompatActivity() {
 
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, displayNames)
         listView.adapter = adapter
+
+        loadSavedList()
 
         addButton.setOnClickListener {
             pickVideos.launch(arrayOf("video/*"))
@@ -78,16 +67,6 @@ class MainActivity : AppCompatActivity() {
             deleteVideo(position)
             true
         }
-    }
-
-    // 直接开始随机播放
-    private fun startRandomPlayback(startIndex: Int) {
-        val intent = Intent(this, PlayerActivity::class.java)
-        val listStrings = ArrayList(videoUris.map { it.toString() })
-        intent.putStringArrayListExtra("video_list", listStrings)
-        intent.putExtra("current_index", startIndex)
-        startActivity(intent)
-        finish() // 关闭MainActivity，避免返回键回到空白列表
     }
 
     private fun playVideo(startIndex: Int) {
@@ -136,6 +115,7 @@ class MainActivity : AppCompatActivity() {
         displayNames.clear()
         savedUris.forEach { videoUris.add(Uri.parse(it)) }
         displayNames.addAll(savedNames)
+        adapter.notifyDataSetChanged()
     }
 
     private fun getFileNameFromUri(uri: Uri): String {
