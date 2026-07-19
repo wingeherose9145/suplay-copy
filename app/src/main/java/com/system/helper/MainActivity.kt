@@ -20,7 +20,6 @@ class MainActivity : AppCompatActivity() {
     private val displayNames = mutableListOf<String>()
     private lateinit var adapter: ArrayAdapter<String>
 
-    // 1. 选择视频的回调（保留第一版的选择方式）
     private val pickVideos = registerForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
@@ -29,7 +28,6 @@ class MainActivity : AppCompatActivity() {
         uris.forEach { uri ->
             if (!videoUris.contains(uri)) {
                 try {
-                    // 【关键点】申请永久访问该文件的权限，否则重启APP后无法读取
                     contentResolver.takePersistableUriPermission(
                         uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
@@ -41,7 +39,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         adapter.notifyDataSetChanged()
-        saveList() // 每次添加后保存
+        saveList()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,42 +52,29 @@ class MainActivity : AppCompatActivity() {
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, displayNames)
         listView.adapter = adapter
 
-        // 加载上次保存的内容
         loadSavedList()
 
-        // 按钮逻辑：添加新视频
         addButton.setOnClickListener {
             pickVideos.launch(arrayOf("video/*"))
         }
 
-        // 列表点击：正常播放
         listView.setOnItemClickListener { _, _, position, _ ->
-            playVideo(position, false)
+            playVideo(position)
         }
 
-        // 【新功能】如果列表不为空，进入APP后自动随机播放
         if (videoUris.isNotEmpty()) {
-            val randomIndex = videoUris.indices.random()
-            playVideo(randomIndex, true) 
+            playVideo(videoUris.indices.random())
         }
     }
 
-    private fun playVideo(startIndex: Int, isRandom: Boolean) {
+    private fun playVideo(startIndex: Int) {
         val intent = Intent(this, PlayerActivity::class.java)
-        intent.putExtra("video_uri", videoUris[startIndex].toString())
-        intent.putExtra("current_index", startIndex)
-        
-        // 传递整个列表
         val listStrings = ArrayList(videoUris.map { it.toString() })
         intent.putStringArrayListExtra("video_list", listStrings)
-        
-        // 如果需要随机模式，可以传个标记位给 PlayerActivity
-        intent.putExtra("is_random_mode", isRandom)
-        
+        intent.putExtra("current_index", startIndex)
         startActivity(intent)
     }
 
-    // 保存列表到本地（使用第一问中你提到的 Gson）
     private fun saveList() {
         val prefs = getSharedPreferences("app_data", MODE_PRIVATE)
         val uriStrings = videoUris.map { it.toString() }
@@ -97,7 +82,6 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString("saved_names", Gson().toJson(displayNames)).apply()
     }
 
-    // 读取本地保存的列表
     private fun loadSavedList() {
         val prefs = getSharedPreferences("app_data", MODE_PRIVATE)
         val uriJson = prefs.getString("saved_uris", null) ?: return
@@ -109,12 +93,7 @@ class MainActivity : AppCompatActivity() {
 
         videoUris.clear()
         displayNames.clear()
-        
-        savedUris.forEach { 
-            val uri = Uri.parse(it)
-            // 检查是否依然拥有该 Uri 的权限
-            videoUris.add(uri) 
-        }
+        savedUris.forEach { videoUris.add(Uri.parse(it)) }
         displayNames.addAll(savedNames)
         adapter.notifyDataSetChanged()
     }
